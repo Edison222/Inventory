@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Box, Stack, Typography, Button, Modal, TextField } from '@mui/material'
 import { firestore } from '@/firebase'
+import dynamic from 'next/dynamic';
 import {
   collection,
   doc,
@@ -130,6 +131,9 @@ export default function Home() {
       gap={2}
       sx={{ padding: 2, boxSizing: 'border-box', bgcolor: '#dcdcdc' }}
     >
+      <Typography variant="h2" component="h1" gutterBottom color="#1976d2" sx={{ mb: 4 }}>
+        Pantry Tracker
+      </Typography>
       <Modal
         open={open}
         onClose={handleClose}
