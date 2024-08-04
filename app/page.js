@@ -20,18 +20,23 @@ const style = {
   transform: 'translate(-50%, -50%)',
   width: 400,
   bgcolor: 'white',
-  border: '2px solid #000',
+  border: '2px solid #1976d2',
   boxShadow: 24,
   p: 4,
   display: 'flex',
   flexDirection: 'column',
   gap: 3,
+  borderRadius: '8px'
 }
 
 export default function Home() {
   const [inventory, setInventory] = useState([])
   const [open, setOpen] = useState(false)
   const [itemName, setItemName] = useState('')
+  const [itemQuantity, setItemQuantity] = useState(1)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [searchResult, setSearchResult] = useState(null)
+  const [editingItem, setEditingItem] = useState(null)
 
   const updateInventory = async () => {
     const snapshot = query(collection(firestore, 'inventory'))
@@ -43,16 +48,20 @@ export default function Home() {
     setInventory(inventoryList)
   }
 
-  const addItem = async (item) => {
-    const docRef = doc(collection(firestore, 'inventory'), item)
+  const addItem = async () => {
+    if (!itemName.trim()) return
+    const docRef = doc(collection(firestore, 'inventory'), itemName)
     const docSnap = await getDoc(docRef)
     if (docSnap.exists()) {
       const { quantity } = docSnap.data()
-      await setDoc(docRef, { quantity: quantity + 1 })
+      await setDoc(docRef, { quantity: quantity + itemQuantity })
     } else {
-      await setDoc(docRef, { quantity: 1 })
+      await setDoc(docRef, { quantity: itemQuantity })
     }
+    setItemName('')
+    setItemQuantity(1)
     await updateInventory()
+    handleClose()
   }
 
   const removeItem = async (item) => {
@@ -68,21 +77,43 @@ export default function Home() {
     }
     await updateInventory()
   }
+
+  const updateItem = async () => {
+    const docRef = doc(collection(firestore, 'inventory'), editingItem.name)
+    await setDoc(docRef, { quantity: itemQuantity })
+    setEditingItem(null)
+    setItemName('')
+    setItemQuantity(1)
+    await updateInventory()
+    handleClose()
+  }
+
+  const editItem = (item) => {
+    setEditingItem(item)
+    setItemName(item.name)
+    setItemQuantity(item.quantity)
+    handleOpen()
+  }
+
   const searchItem = async (item) => {
     const docRef = doc(collection(firestore, 'inventory'), item)
     const docSnap = await getDoc(docRef)
     if (docSnap.exists()) {
-      const data = docSnap.data()
-      console.log("Item found:", data)
+      setSearchResult({ name: docSnap.id, ...docSnap.data() })
     } else {
-      console.log("No such item exists")
+      setSearchResult(null)
     }
   }
 
-
+  const handleSearch = () => {
+    searchItem(searchTerm)
+  }
 
   const handleOpen = () => setOpen(true)
-  const handleClose = () => setOpen(false)
+  const handleClose = () => {
+    setOpen(false)
+    setEditingItem(null)
+  }
 
   useEffect(() => {
     updateInventory()
@@ -97,6 +128,7 @@ export default function Home() {
       flexDirection={'column'}
       alignItems={'center'}
       gap={2}
+      sx={{ padding: 2, boxSizing: 'border-box', bgcolor: '#dcdcdc' }}
     >
       <Modal
         open={open}
@@ -106,7 +138,7 @@ export default function Home() {
       >
         <Box sx={style}>
           <Typography id="modal-modal-title" variant="h6" component="h2">
-            Add Item
+            {editingItem ? 'Update Item' : 'Add Item'}
           </Typography>
           <Stack width="100%" direction={'row'} spacing={2}>
             <TextField
@@ -117,56 +149,96 @@ export default function Home() {
               value={itemName}
               onChange={(e) => setItemName(e.target.value)}
             />
+            <TextField
+              id="outlined-number"
+              label="Quantity"
+              type="number"
+              InputLabelProps={{
+                shrink: true,
+              }}
+              value={itemQuantity}
+              onChange={(e) => setItemQuantity(parseInt(e.target.value))}
+            />
             <Button
               variant="outlined"
-              onClick={() => {
-                addItem(itemName)
-                setItemName('')
-                handleClose()
-              }}
+              color="primary"
+              onClick={editingItem ? updateItem : addItem}
             >
-              Add
+              {editingItem ? 'Update' : 'Add'}
             </Button>
           </Stack>
         </Box>
       </Modal>
-      <Button variant="contained" onClick={handleOpen}>
+      <Stack direction="row" spacing={2} width="50%">
+        <TextField
+          id="search-item"
+          label="Search Item"
+          variant="outlined"
+          fullWidth
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <Button variant="contained" color="primary" onClick={handleSearch}>
+          Search
+        </Button>
+      </Stack>
+      {searchResult && (
+        <Box
+          width="50%"
+          padding={2}
+          marginTop={2}
+          border="1px solid #1976d2"
+          borderRadius="8px"
+          bgcolor="#e3f2fd"
+        >
+          <Typography variant="h6">
+            {searchResult.name.charAt(0).toUpperCase() + searchResult.name.slice(1)}
+          </Typography>
+          <Typography variant="body1">
+            Quantity: {searchResult.quantity}
+          </Typography>
+        </Box>
+      )}
+      <Button variant="contained" color="primary" onClick={handleOpen}>
         Add New Item
       </Button>
-      <Box border={'1px solid #333'}>
+      <Box border={'1px solid #1976d2'} width="90%" maxWidth="800px" borderRadius="8px" overflow="hidden">
         <Box
-          width="800px"
-          height="100px"
-          bgcolor={'#ADD8E6'}
+          bgcolor="#00008b"
           display={'flex'}
           justifyContent={'center'}
           alignItems={'center'}
+          padding={2}
         >
-          <Typography variant={'h3'} color={'#333'} textAlign={'center'}>
+          <Typography variant={'h4'} color={'#fff'}>
             Inventory Items
           </Typography>
         </Box>
-        <Stack width="800px" height="300px" spacing={2} overflow={'auto'}>
+        <Stack width="100%" height="300px" spacing={2} overflow="auto" padding={2} sx={{ bgcolor: '#ffffff' }}>
           {inventory.map(({ name, quantity }) => (
             <Box
               key={name}
-              width="100%"
-              minHeight="150px"
               display={'flex'}
               justifyContent={'space-between'}
               alignItems={'center'}
-              bgcolor={'#f0f0f0'}
-              paddingX={5}
+              bgcolor={'#e0e0e0'}
+              padding={2}
+              borderRadius="4px"
             >
-              <Typography variant={'h3'} color={'#333'} textAlign={'center'}>
+              <Typography variant={'h5'} color={'#333'}>
                 {name.charAt(0).toUpperCase() + name.slice(1)}
               </Typography>
-              <Typography variant={'h3'} color={'#333'} textAlign={'center'}>
+              <Typography variant={'h5'} color={'#333'}>
                 Quantity: {quantity}
               </Typography>
-              <Button variant="contained" onClick={() => removeItem(name)}>
-                Remove
-              </Button>
+              <Stack direction="row" spacing={2}>
+                <Button variant="contained" color="primary" onClick={() => editItem({ name, quantity })}>
+                  Edit
+                </Button>
+                <Button variant="contained" sx={{ bgcolor: '#00008b' }} onClick={() => removeItem(name)}>
+                  Remove
+                </Button>
+              </Stack>
             </Box>
           ))}
         </Stack>
